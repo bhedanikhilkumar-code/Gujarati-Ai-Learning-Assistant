@@ -1,73 +1,232 @@
-# Welcome to your Lovable project
+# Student Notes Sharing Platform (MERN)
 
-## Project info
+A complete **MERN stack** project with two roles:
+- **Student/User**
+- **Admin**
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+---
 
-## How can I edit this code?
+## 1) Project overview
 
-There are several ways of editing your application.
+Student Notes Sharing Platform allows students to upload and discover semester-wise academic notes in PDF format. Uploaded notes are moderated by admins before becoming publicly available.
 
-**Use Lovable**
+### Key features
+- JWT Authentication (Register/Login/Profile)
+- Role-based authorization (user/admin)
+- PDF-only upload with size limit via Multer
+- Filter notes by category, subject, and semester
+- Admin moderation (approve/reject notes)
+- Admin management for categories, subjects, users, and notes
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+---
 
-Changes made via Lovable will be committed automatically to this repo.
+## 2) Folder structure (frontend + backend)
 
-**Use your preferred IDE**
+```txt
+student-notes-sharing-platform/
+├── backend/
+│   ├── src/
+│   │   ├── config/
+│   │   │   └── db.js
+│   │   ├── controllers/
+│   │   │   ├── authController.js
+│   │   │   ├── categoryController.js
+│   │   │   ├── noteController.js
+│   │   │   ├── subjectController.js
+│   │   │   └── userController.js
+│   │   ├── middleware/
+│   │   │   ├── authMiddleware.js
+│   │   │   ├── errorMiddleware.js
+│   │   │   └── uploadMiddleware.js
+│   │   ├── models/
+│   │   │   ├── Category.js
+│   │   │   ├── Note.js
+│   │   │   ├── Subject.js
+│   │   │   └── User.js
+│   │   ├── routes/
+│   │   │   ├── authRoutes.js
+│   │   │   ├── categoryRoutes.js
+│   │   │   ├── noteRoutes.js
+│   │   │   ├── subjectRoutes.js
+│   │   │   └── userRoutes.js
+│   │   ├── uploads/
+│   │   ├── utils/
+│   │   │   ├── asyncHandler.js
+│   │   │   └── generateToken.js
+│   │   ├── app.js
+│   │   └── server.js
+│   ├── .env.example
+│   └── package.json
+├── frontend/
+│   ├── src/
+│   │   ├── api/client.ts
+│   │   ├── components/
+│   │   │   ├── Navbar.tsx
+│   │   │   └── ProtectedRoute.tsx
+│   │   ├── context/AuthContext.tsx
+│   │   ├── pages/
+│   │   │   ├── AdminDashboardPage.tsx
+│   │   │   ├── HomePage.tsx
+│   │   │   ├── LoginPage.tsx
+│   │   │   ├── NoteDetailsPage.tsx
+│   │   │   ├── NotesPage.tsx
+│   │   │   ├── RegisterPage.tsx
+│   │   │   ├── UploadNotePage.tsx
+│   │   │   └── UserDashboardPage.tsx
+│   │   ├── types/index.ts
+│   │   ├── App.tsx
+│   │   ├── index.css
+│   │   └── main.tsx
+│   ├── package.json
+│   └── vite config files
+└── README.md
+```
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+---
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## 3) Database schema
 
-Follow these steps:
+### User
+- `name: String`
+- `email: String (unique)`
+- `password: String (hashed)`
+- `role: enum('user','admin')`
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+### Category
+- `name: String (unique)`
+- `description: String`
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+### Subject
+- `name: String`
+- `category: ObjectId -> Category`
 
-# Step 3: Install the necessary dependencies.
-npm i
+### Note
+- `title: String`
+- `description: String`
+- `semester: Number`
+- `fileName: String`
+- `filePath: String`
+- `status: enum('pending','approved','rejected')`
+- `rejectionReason: String`
+- `category: ObjectId -> Category`
+- `subject: ObjectId -> Subject`
+- `uploader: ObjectId -> User`
+- `timestamps`
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+---
+
+## 4) Backend code (step-by-step)
+
+1. Initialize Express server and MongoDB connection.
+2. Add models for User, Category, Subject, and Note.
+3. Add JWT auth and role authorization middleware.
+4. Add Multer middleware for strict PDF upload and file-size limit.
+5. Implement controllers for:
+   - Auth
+   - Categories
+   - Subjects
+   - Notes (upload, list, review, download, delete)
+   - Users (admin management)
+6. Register all routes under `/api/*`.
+7. Add centralized not-found + error handlers.
+
+---
+
+## 5) Frontend code (page-wise)
+
+### Implemented pages
+- **Home page**: Platform intro and CTA buttons.
+- **Login page**: JWT login form.
+- **Register page**: New user signup.
+- **Notes listing page**: Filter by category, subject, semester.
+- **Note details page**: Details + download link.
+- **Upload notes page**: PDF upload form (admin approval flow).
+- **User dashboard**: View own uploaded notes and status.
+- **Admin dashboard**: Moderate pending notes, inspect users/categories/subjects.
+
+### Frontend architecture
+- `AuthContext` manages login/register/logout/profile bootstrap.
+- `ProtectedRoute` secures routes and supports role checks.
+- `api/client.ts` centralizes fetch calls with bearer token handling.
+
+---
+
+## 6) API documentation
+
+### Auth
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `GET /api/auth/profile` (protected)
+
+### Categories
+- `GET /api/categories`
+- `POST /api/categories` (admin)
+- `PUT /api/categories/:id` (admin)
+- `DELETE /api/categories/:id` (admin)
+
+### Subjects
+- `GET /api/subjects?category=<categoryId>`
+- `POST /api/subjects` (admin)
+- `PUT /api/subjects/:id` (admin)
+- `DELETE /api/subjects/:id` (admin)
+
+### Notes
+- `POST /api/notes` (protected, multipart, field: `pdf`)
+- `GET /api/notes?category=&subject=&semester=&status=` (protected)
+- `GET /api/notes/my-uploads` (protected)
+- `GET /api/notes/:id` (protected)
+- `PATCH /api/notes/:id/review` (admin)
+- `GET /api/notes/:id/download` (protected)
+- `DELETE /api/notes/:id` (admin/uploader)
+
+### Users (admin)
+- `GET /api/users`
+- `PATCH /api/users/:id/role`
+- `DELETE /api/users/:id`
+
+---
+
+## 7) How to run project locally
+
+### Prerequisites
+- Node.js 18+
+- MongoDB running locally (or Atlas URI)
+
+### Backend
+```bash
+cd backend
+cp .env.example .env
+npm install
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+### Frontend
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+Default:
+- Frontend: `http://localhost:5173`
+- Backend: `http://localhost:5000`
 
-**Use GitHub Codespaces**
+---
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## 8) Future scope
 
-## What technologies are used for this project?
+- Search + pagination for notes
+- Email notifications on approval/rejection
+- Rich admin analytics dashboard
+- Tags and bookmarking/favorites
+- Rate/review notes
+- Cloud storage integration (S3/Cloudinary)
+- Audit logs and activity timeline
 
-This project is built with:
+---
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+## Submission Notes
+- Clean architecture with clear separation of concerns.
+- PDF upload validation + file size control implemented.
+- Role-protected routes on frontend and backend.
+- Production-oriented error handling and middleware setup.
