@@ -78,3 +78,25 @@ source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
+
+
+## Next.js Frontend
+
+A single-page Next.js client is available in `frontend/`:
+
+- Upload PDF with `fetch` to `POST /upload`
+- Show progress states (`uploading`, `processing`, `downloading`, `success`, `error`)
+- On success, request `GET /export/{job_id}` and auto-download `export.zip`
+- Friendly inline error messages for upload/export failures
+
+Run it locally:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Environment variable (optional):
+
+- `NEXT_PUBLIC_API_BASE_URL` (default: `http://localhost:8000`)
