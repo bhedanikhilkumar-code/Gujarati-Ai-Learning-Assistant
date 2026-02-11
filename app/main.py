@@ -1,5 +1,6 @@
 import hashlib
 import json
+import re
 import shutil
 import uuid
 from pathlib import Path
@@ -21,12 +22,20 @@ app.add_middleware(
 BASE_STORAGE_PATH = Path(__file__).resolve().parent / "storage"
 BASE_STORAGE_PATH.mkdir(parents=True, exist_ok=True)
 
+FORMULA_MARKERS = ("=", "∑", "∫", "→", "λ", "μ", "^", "_")
+SYMBOL_OR_NUMBER_PATTERN = re.compile(r"[^A-Za-z\s]")
+DIGIT_PATTERN = re.compile(r"\d")
+
 
 def _open_pdf_or_raise(pdf_path: Path) -> fitz.Document:
     try:
         return fitz.open(pdf_path)
     except (fitz.FileDataError, RuntimeError) as exc:
         raise ValueError("Invalid PDF file") from exc
+
+
+def _job_dir(job_id: str) -> Path:
+    return BASE_STORAGE_PATH / job_id
 
 
 def extract_text_per_page(job_id: str) -> list[dict[str, str | int]]:
@@ -39,7 +48,7 @@ def extract_text_per_page(job_id: str) -> list[dict[str, str | int]]:
     Side effect:
         Saves extraction output to app/storage/{job_id}/pages.json
     """
-    job_dir = BASE_STORAGE_PATH / job_id
+    job_dir = _job_dir(job_id)
     input_pdf_path = job_dir / "input.pdf"
 
     if not input_pdf_path.exists():
@@ -57,6 +66,51 @@ def extract_text_per_page(job_id: str) -> list[dict[str, str | int]]:
     return pages
 
 
+def _is_likely_formula_line(line: str) -> bool:
+    compact = line.strip()
+    if not compact:
+        return False
+
+    if any(marker in compact for marker in FORMULA_MARKERS):
+        return True
+
+    symbol_count = len(SYMBOL_OR_NUMBER_PATTERN.findall(compact))
+    digit_count = len(DIGIT_PATTERN.findall(compact))
+    ratio = symbol_count / max(len(compact), 1)
+
+    return (symbol_count >= 6 and digit_count >= 2) or ratio >= 0.35
+
+
+def detect_formulas(pages_text: list[dict[str, str | int]], job_id: str | None = None) -> list[dict[str, str | int]]:
+    """
+    Detect likely formula lines from extracted page text.
+
+    A line is considered likely formula if it contains common math markers
+    (=, ∑, ∫, →, λ, μ, ^, _) or has many symbols/numbers.
+
+    Args:
+        pages_text: output of extract_text_per_page().
+        job_id: optional; when provided, writes formulas.json under this job folder.
+
+    Returns:
+        list[dict]: [{"page": int, "line": str}, ...]
+    """
+    formulas: list[dict[str, str | int]] = []
+
+    for page_item in pages_text:
+        page_number = int(page_item.get("page", 0))
+        text = str(page_item.get("text", ""))
+        for line in text.splitlines():
+            if _is_likely_formula_line(line):
+                formulas.append({"page": page_number, "line": line.strip()})
+
+    if job_id:
+        formulas_path = _job_dir(job_id) / "formulas.json"
+        formulas_path.write_text(json.dumps(formulas, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    return formulas
+
+
 def extract_images(job_id: str) -> list[dict[str, str | int]]:
     """
     Extract unique embedded images from a PDF and save as PNGs.
@@ -68,7 +122,7 @@ def extract_images(job_id: str) -> list[dict[str, str | int]]:
     Returns:
       list[dict]: [{"page": <int>, "filename": "diagrams/page_n_i.png"}, ...]
     """
-    job_dir = BASE_STORAGE_PATH / job_id
+    job_dir = _job_dir(job_id)
     input_pdf_path = job_dir / "input.pdf"
 
     if not input_pdf_path.exists():
@@ -113,7 +167,7 @@ def extract_images(job_id: str) -> list[dict[str, str | int]]:
 
 @app.post("/upload")
 async def upload_pdf(file: UploadFile = File(...)):
-    """Accept a PDF file, persist it, extract page text/images, and return a generated job_id."""
+    """Accept a PDF file, run extraction pipeline, and return a generated job_id."""
     content_type = (file.content_type or "").lower()
     filename = (file.filename or "").lower()
 
@@ -121,7 +175,7 @@ async def upload_pdf(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="Only PDF files are allowed")
 
     job_id = str(uuid.uuid4())
-    job_dir = BASE_STORAGE_PATH / job_id
+    job_dir = _job_dir(job_id)
     job_dir.mkdir(parents=True, exist_ok=True)
 
     output_path = job_dir / "input.pdf"
@@ -130,7 +184,8 @@ async def upload_pdf(file: UploadFile = File(...)):
     output_path.write_bytes(file_bytes)
 
     try:
-        extract_text_per_page(job_id)
+        pages_text = extract_text_per_page(job_id)
+        detect_formulas(pages_text, job_id=job_id)
         extract_images(job_id)
     except ValueError as exc:
         shutil.rmtree(job_dir, ignore_errors=True)

@@ -14,6 +14,8 @@ This repository includes a FastAPI backend entrypoint at:
   - Saves upload to: `app/storage/{job_id}/input.pdf`
   - Extracts text page-by-page via PyMuPDF
   - Saves extracted text to: `app/storage/{job_id}/pages.json`
+  - Detects likely formula lines from text
+  - Saves formulas to: `app/storage/{job_id}/formulas.json`
   - Extracts unique embedded images via hash dedupe
   - Saves images to: `app/storage/{job_id}/diagrams/page_{n}_{i}.png`
   - Saves image metadata to: `app/storage/{job_id}/diagrams.json`
@@ -26,6 +28,13 @@ This repository includes a FastAPI backend entrypoint at:
   - Returns `[{"page": int, "text": str}, ...]`
   - Raises error for invalid/corrupt PDF files
   - Persists extracted output to `pages.json`
+
+- `detect_formulas(pages_text)`
+  - Detects likely formulas from each text line using markers:
+    - `=`, `∑`, `∫`, `→`, `λ`, `μ`, `^`, `_`
+  - Also flags lines with many symbols/numbers
+  - Returns `[{"page": int, "line": str}, ...]`
+  - Persists extracted output to `formulas.json`
 
 - `extract_images(job_id)`
   - Reads `app/storage/{job_id}/input.pdf`
