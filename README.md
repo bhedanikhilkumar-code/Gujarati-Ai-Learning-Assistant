@@ -16,6 +16,8 @@ This repository includes a FastAPI backend entrypoint at:
   - Saves extracted text to: `app/storage/{job_id}/pages.json`
   - Detects likely formula lines from text
   - Saves formulas to: `app/storage/{job_id}/formulas.json`
+  - Generates markdown notes outline from headings + nearby summaries
+  - Saves notes outline to: `app/storage/{job_id}/notes.md`
   - Extracts unique embedded images via hash dedupe
   - Saves images to: `app/storage/{job_id}/diagrams/page_{n}_{i}.png`
   - Saves image metadata to: `app/storage/{job_id}/diagrams.json`
@@ -35,6 +37,11 @@ This repository includes a FastAPI backend entrypoint at:
   - Also flags lines with many symbols/numbers
   - Returns `[{"page": int, "line": str}, ...]`
   - Persists extracted output to `formulas.json`
+
+- `generate_notes_outline(pages_text)`
+  - Creates markdown outline using headings from ALL CAPS / ending with `:` / numbered headings
+  - Adds 3-6 bullet summaries from nearby text (simple sentence splitting + trimming)
+  - Returns markdown string and persists `notes.md`
 
 - `extract_images(job_id)`
   - Reads `app/storage/{job_id}/input.pdf`

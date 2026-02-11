@@ -25,6 +25,8 @@ BASE_STORAGE_PATH.mkdir(parents=True, exist_ok=True)
 FORMULA_MARKERS = ("=", "∑", "∫", "→", "λ", "μ", "^", "_")
 SYMBOL_OR_NUMBER_PATTERN = re.compile(r"[^A-Za-z\s]")
 DIGIT_PATTERN = re.compile(r"\d")
+SENTENCE_SPLIT_PATTERN = re.compile(r"(?<=[.!?])\s+")
+NUMBERED_HEADING_PATTERN = re.compile(r"^\s*(\d+(?:\.\d+)*)[\).:-]?\s+.+$")
 
 
 def _open_pdf_or_raise(pdf_path: Path) -> fitz.Document:
@@ -111,6 +113,116 @@ def detect_formulas(pages_text: list[dict[str, str | int]], job_id: str | None =
     return formulas
 
 
+def _is_heading(line: str) -> bool:
+    trimmed = line.strip()
+    if len(trimmed) < 3:
+        return False
+
+    alpha_chars = [c for c in trimmed if c.isalpha()]
+    upper_ratio = 0
+    if alpha_chars:
+        upper_ratio = sum(1 for c in alpha_chars if c.isupper()) / len(alpha_chars)
+
+    is_all_caps = bool(alpha_chars) and upper_ratio >= 0.9 and len(trimmed.split()) <= 12
+    ends_with_colon = trimmed.endswith(":") and len(trimmed.split()) <= 14
+    is_numbered = bool(NUMBERED_HEADING_PATTERN.match(trimmed))
+
+    return is_all_caps or ends_with_colon or is_numbered
+
+
+def _line_to_sentences(line: str) -> list[str]:
+    parts = SENTENCE_SPLIT_PATTERN.split(line.strip())
+    cleaned = [p.strip(" -•\t") for p in parts if p.strip()]
+    return [c for c in cleaned if len(c) >= 20]
+
+
+def generate_notes_outline(pages_text: list[dict[str, str | int]], job_id: str | None = None) -> str:
+    """
+    Generate a markdown outline from page text.
+
+    Heading detection rules:
+      - ALL CAPS lines
+      - lines ending with ':'
+      - numbered headings (e.g. '1. Intro', '2) Methods')
+
+    Under each heading, adds 3-6 bullet summaries using nearby lines,
+    with simple sentence splitting and trimming.
+    """
+    all_lines: list[tuple[int, str]] = []
+    for page in pages_text:
+        page_number = int(page.get("page", 0))
+        text = str(page.get("text", ""))
+        for line in text.splitlines():
+            stripped = line.strip()
+            if stripped:
+                all_lines.append((page_number, stripped))
+
+    heading_indices = [idx for idx, (_, line) in enumerate(all_lines) if _is_heading(line)]
+
+    outline_parts = ["# Notes Outline", ""]
+
+    if not heading_indices:
+        # fallback to single section using first meaningful sentences
+        outline_parts.append("## Key Points")
+        candidates: list[str] = []
+        for _, line in all_lines:
+            candidates.extend(_line_to_sentences(line))
+            if len(candidates) >= 6:
+                break
+        if not candidates:
+            candidates = [line for _, line in all_lines[:6]]
+        for sentence in candidates[:6]:
+            outline_parts.append(f"- {sentence}")
+        outline_parts.append("")
+    else:
+        for pos, heading_idx in enumerate(heading_indices):
+            page_number, heading_text = all_lines[heading_idx]
+            next_heading_idx = heading_indices[pos + 1] if pos + 1 < len(heading_indices) else len(all_lines)
+
+            nearby_lines = [line for _, line in all_lines[heading_idx + 1 : next_heading_idx]]
+            sentence_pool: list[str] = []
+            for line in nearby_lines:
+                sentence_pool.extend(_line_to_sentences(line))
+                if len(sentence_pool) >= 10:
+                    break
+
+            # fallback when nearby sentence splitting yields too little
+            if len(sentence_pool) < 3:
+                fallback = [l.strip(" -•\t") for l in nearby_lines if len(l.strip()) >= 10]
+                sentence_pool.extend(fallback)
+
+            seen: set[str] = set()
+            bullets: list[str] = []
+            for sentence in sentence_pool:
+                key = sentence.lower()
+                if key in seen:
+                    continue
+                seen.add(key)
+                bullets.append(sentence)
+                if len(bullets) >= 6:
+                    break
+
+            if not bullets:
+                bullets = ["No additional summary points detected near this heading."]
+
+            # enforce 3-6 bullets when possible
+            bullets = bullets[: max(3, min(6, len(bullets)))]
+
+            outline_parts.append(f"## {heading_text}")
+            outline_parts.append(f"_Page {page_number}_")
+            for bullet in bullets:
+                outline_parts.append(f"- {bullet}")
+            outline_parts.append("")
+
+    outline_markdown = "\n".join(outline_parts).strip() + "\n"
+
+    if job_id:
+        notes_path = _job_dir(job_id) / "notes.md"
+        notes_path.write_text(outline_markdown, encoding="utf-8")
+
+    return outline_markdown
+
+
 def extract_images(job_id: str) -> list[dict[str, str | int]]:
     """
     Extract unique embedded images from a PDF and save as PNGs.
@@ -186,6 +298,7 @@ async def upload_pdf(file: UploadFile = File(...)):
     try:
         pages_text = extract_text_per_page(job_id)
         detect_formulas(pages_text, job_id=job_id)
+        generate_notes_outline(pages_text, job_id=job_id)
         extract_images(job_id)
     except ValueError as exc:
         shutil.rmtree(job_dir, ignore_errors=True)
