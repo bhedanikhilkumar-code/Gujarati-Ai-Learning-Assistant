@@ -2,7 +2,7 @@
 
 ## FastAPI Upload Backend
 
-This repository now includes a FastAPI backend entrypoint at:
+This repository includes a FastAPI backend entrypoint at:
 
 - `app/main.py`
 
@@ -12,7 +12,17 @@ This repository now includes a FastAPI backend entrypoint at:
   - Accepts multipart form-data with a single file field: `file`
   - Only PDF files are allowed
   - Saves upload to: `app/storage/{job_id}/input.pdf`
+  - Extracts text page-by-page via PyMuPDF
+  - Saves extracted text to: `app/storage/{job_id}/pages.json`
   - Returns JSON: `{ "job_id": "<uuid>" }`
+
+### Text extraction helper
+
+- `extract_text_per_page(job_id)`
+  - Reads `app/storage/{job_id}/input.pdf`
+  - Returns `[{"page": int, "text": str}, ...]`
+  - Raises error for invalid/corrupt PDF files
+  - Persists extracted output to `pages.json`
 
 ### CORS
 
