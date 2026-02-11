@@ -3,11 +3,13 @@ import json
 import re
 import shutil
 import uuid
+import zipfile
 from pathlib import Path
 
 import fitz
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 
 app = FastAPI(title="PDF Upload API")
 
@@ -38,6 +40,12 @@ def _open_pdf_or_raise(pdf_path: Path) -> fitz.Document:
 
 def _job_dir(job_id: str) -> Path:
     return BASE_STORAGE_PATH / job_id
+
+
+def _read_json_file(path: Path) -> list[dict[str, str | int]]:
+    if not path.exists():
+        return []
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def extract_text_per_page(job_id: str) -> list[dict[str, str | int]]:
@@ -162,7 +170,6 @@ def generate_notes_outline(pages_text: list[dict[str, str | int]], job_id: str |
     outline_parts = ["# Notes Outline", ""]
 
     if not heading_indices:
-        # fallback to single section using first meaningful sentences
         outline_parts.append("## Key Points")
         candidates: list[str] = []
         for _, line in all_lines:
@@ -186,7 +193,6 @@ def generate_notes_outline(pages_text: list[dict[str, str | int]], job_id: str |
                 if len(sentence_pool) >= 10:
                     break
 
-            # fallback when nearby sentence splitting yields too little
             if len(sentence_pool) < 3:
                 fallback = [l.strip(" -•\t") for l in nearby_lines if len(l.strip()) >= 10]
                 sentence_pool.extend(fallback)
@@ -205,7 +211,6 @@ def generate_notes_outline(pages_text: list[dict[str, str | int]], job_id: str |
             if not bullets:
                 bullets = ["No additional summary points detected near this heading."]
 
-            # enforce 3-6 bullets when possible
             bullets = bullets[: max(3, min(6, len(bullets)))]
 
             outline_parts.append(f"## {heading_text}")
@@ -277,6 +282,32 @@ def extract_images(job_id: str) -> list[dict[str, str | int]]:
     return extracted
 
 
+def _write_formulas_markdown(job_dir: Path) -> Path:
+    formulas = _read_json_file(job_dir / "formulas.json")
+    lines = ["# Formulas", ""]
+    if not formulas:
+        lines.append("- No formulas detected.")
+    else:
+        for item in formulas:
+            lines.append(f"- Page {item.get('page', '?')}: {item.get('line', '')}")
+    output_path = job_dir / "formulas.md"
+    output_path.write_text("\n".join(lines).strip() + "\n", encoding="utf-8")
+    return output_path
+
+
+def _write_diagrams_markdown(job_dir: Path) -> Path:
+    diagrams = _read_json_file(job_dir / "diagrams.json")
+    lines = ["# Diagrams", ""]
+    if not diagrams:
+        lines.append("- No diagrams extracted.")
+    else:
+        for item in diagrams:
+            lines.append(f"- Page {item.get('page', '?')}: {item.get('filename', '')}")
+    output_path = job_dir / "diagrams.md"
+    output_path.write_text("\n".join(lines).strip() + "\n", encoding="utf-8")
+    return output_path
+
+
 @app.post("/upload")
 async def upload_pdf(file: UploadFile = File(...)):
     """Accept a PDF file, run extraction pipeline, and return a generated job_id."""
@@ -307,3 +338,42 @@ async def upload_pdf(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail="Uploaded file was not saved correctly") from exc
 
     return {"job_id": job_id}
+
+
+@app.get("/export/{job_id}")
+async def export_job(job_id: str):
+    """Zip notes.md, formulas.md, diagrams.md and diagrams/ as export.zip and stream it."""
+    job_dir = _job_dir(job_id)
+    if not job_dir.exists() or not job_dir.is_dir():
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    notes_path = job_dir / "notes.md"
+    if not notes_path.exists():
+        pages_text = _read_json_file(job_dir / "pages.json")
+        if pages_text:
+            generate_notes_outline(pages_text, job_id=job_id)
+
+    formulas_md_path = _write_formulas_markdown(job_dir)
+    diagrams_md_path = _write_diagrams_markdown(job_dir)
+
+    if not notes_path.exists():
+        raise HTTPException(status_code=404, detail="notes.md not found for this job")
+
+    export_zip_path = job_dir / "export.zip"
+
+    with zipfile.ZipFile(export_zip_path, mode="w", compression=zipfile.ZIP_DEFLATED) as zipf:
+        zipf.write(notes_path, arcname="notes.md")
+        zipf.write(formulas_md_path, arcname="formulas.md")
+        zipf.write(diagrams_md_path, arcname="diagrams.md")
+
+        diagrams_dir = job_dir / "diagrams"
+        if diagrams_dir.exists() and diagrams_dir.is_dir():
+            for file_path in diagrams_dir.rglob("*"):
+                if file_path.is_file():
+                    zipf.write(file_path, arcname=str(file_path.relative_to(job_dir)))
+
+    return FileResponse(
+        path=export_zip_path,
+        media_type="application/zip",
+        filename="export.zip",
+    )

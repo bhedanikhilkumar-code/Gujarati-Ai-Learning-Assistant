@@ -23,6 +23,15 @@ This repository includes a FastAPI backend entrypoint at:
   - Saves image metadata to: `app/storage/{job_id}/diagrams.json`
   - Returns JSON: `{ "job_id": "<uuid>" }`
 
+
+- `GET /export/{job_id}`
+  - Creates and streams `export.zip`
+  - Includes:
+    - `notes.md`
+    - `formulas.md`
+    - `diagrams.md`
+    - `diagrams/` folder (all extracted image files)
+
 ### Helpers
 
 - `extract_text_per_page(job_id)`
@@ -42,6 +51,12 @@ This repository includes a FastAPI backend entrypoint at:
   - Creates markdown outline using headings from ALL CAPS / ending with `:` / numbered headings
   - Adds 3-6 bullet summaries from nearby text (simple sentence splitting + trimming)
   - Returns markdown string and persists `notes.md`
+
+- `_write_formulas_markdown(job_dir)`
+  - Builds `formulas.md` from `formulas.json`
+
+- `_write_diagrams_markdown(job_dir)`
+  - Builds `diagrams.md` from `diagrams.json`
 
 - `extract_images(job_id)`
   - Reads `app/storage/{job_id}/input.pdf`
