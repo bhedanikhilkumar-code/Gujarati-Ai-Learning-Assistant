@@ -14,15 +14,24 @@ This repository includes a FastAPI backend entrypoint at:
   - Saves upload to: `app/storage/{job_id}/input.pdf`
   - Extracts text page-by-page via PyMuPDF
   - Saves extracted text to: `app/storage/{job_id}/pages.json`
+  - Extracts unique embedded images via hash dedupe
+  - Saves images to: `app/storage/{job_id}/diagrams/page_{n}_{i}.png`
+  - Saves image metadata to: `app/storage/{job_id}/diagrams.json`
   - Returns JSON: `{ "job_id": "<uuid>" }`
 
-### Text extraction helper
+### Helpers
 
 - `extract_text_per_page(job_id)`
   - Reads `app/storage/{job_id}/input.pdf`
   - Returns `[{"page": int, "text": str}, ...]`
   - Raises error for invalid/corrupt PDF files
   - Persists extracted output to `pages.json`
+
+- `extract_images(job_id)`
+  - Reads `app/storage/{job_id}/input.pdf`
+  - Returns `[{"page": int, "filename": str}, ...]`
+  - Deduplicates images using SHA-256 hash of image bytes
+  - Persists images under `diagrams/` and metadata to `diagrams.json`
 
 ### CORS
 
