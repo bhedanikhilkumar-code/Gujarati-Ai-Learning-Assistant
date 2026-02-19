@@ -1,73 +1,102 @@
-# Welcome to your Lovable project
+# Student Notes Sharing Platform
 
-## Project info
+## FastAPI Upload Backend
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+This repository includes a FastAPI backend entrypoint at:
 
-## How can I edit this code?
+- `app/main.py`
 
-There are several ways of editing your application.
+### Endpoint
 
-**Use Lovable**
+- `POST /upload`
+  - Accepts multipart form-data with a single file field: `file`
+  - Only PDF files are allowed
+  - Saves upload to: `app/storage/{job_id}/input.pdf`
+  - Extracts text page-by-page via PyMuPDF
+  - Saves extracted text to: `app/storage/{job_id}/pages.json`
+  - Detects likely formula lines from text
+  - Saves formulas to: `app/storage/{job_id}/formulas.json`
+  - Generates markdown notes outline from headings + nearby summaries
+  - Saves notes outline to: `app/storage/{job_id}/notes.md`
+  - Extracts unique embedded images via hash dedupe
+  - Saves images to: `app/storage/{job_id}/diagrams/page_{n}_{i}.png`
+  - Saves image metadata to: `app/storage/{job_id}/diagrams.json`
+  - Returns JSON: `{ "job_id": "<uuid>" }`
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
 
-Changes made via Lovable will be committed automatically to this repo.
+- `GET /export/{job_id}`
+  - Creates and streams `export.zip`
+  - Includes:
+    - `notes.md`
+    - `formulas.md`
+    - `diagrams.md`
+    - `diagrams/` folder (all extracted image files)
 
-**Use your preferred IDE**
+### Helpers
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+- `extract_text_per_page(job_id)`
+  - Reads `app/storage/{job_id}/input.pdf`
+  - Returns `[{"page": int, "text": str}, ...]`
+  - Raises error for invalid/corrupt PDF files
+  - Persists extracted output to `pages.json`
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+- `detect_formulas(pages_text)`
+  - Detects likely formulas from each text line using markers:
+    - `=`, `∑`, `∫`, `→`, `λ`, `μ`, `^`, `_`
+  - Also flags lines with many symbols/numbers
+  - Returns `[{"page": int, "line": str}, ...]`
+  - Persists extracted output to `formulas.json`
 
-Follow these steps:
+- `generate_notes_outline(pages_text)`
+  - Creates markdown outline using headings from ALL CAPS / ending with `:` / numbered headings
+  - Adds 3-6 bullet summaries from nearby text (simple sentence splitting + trimming)
+  - Returns markdown string and persists `notes.md`
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+- `_write_formulas_markdown(job_dir)`
+  - Builds `formulas.md` from `formulas.json`
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+- `_write_diagrams_markdown(job_dir)`
+  - Builds `diagrams.md` from `diagrams.json`
 
-# Step 3: Install the necessary dependencies.
-npm i
+- `extract_images(job_id)`
+  - Reads `app/storage/{job_id}/input.pdf`
+  - Returns `[{"page": int, "filename": str}, ...]`
+  - Deduplicates images using SHA-256 hash of image bytes
+  - Persists images under `diagrams/` and metadata to `diagrams.json`
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+### CORS
+
+CORS is configured to allow requests from:
+
+- `http://localhost:3000`
+
+### Run locally
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+```
+
+
+## Next.js Frontend
+
+A single-page Next.js client is available in `frontend/`:
+
+- Upload PDF with `fetch` to `POST /upload`
+- Show progress states (`uploading`, `processing`, `downloading`, `success`, `error`)
+- On success, request `GET /export/{job_id}` and auto-download `export.zip`
+- Friendly inline error messages for upload/export failures
+
+Run it locally:
+
+```bash
+cd frontend
+npm install
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+Environment variable (optional):
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+- `NEXT_PUBLIC_API_BASE_URL` (default: `http://localhost:8000`)
