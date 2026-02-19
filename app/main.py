@@ -314,7 +314,10 @@ async def upload_pdf(file: UploadFile = File(...)):
     content_type = (file.content_type or "").lower()
     filename = (file.filename or "").lower()
 
-    if content_type != "application/pdf" and not filename.endswith(".pdf"):
+    # Reject if either MIME type is not PDF OR filename extension is not .pdf.
+    # Using `or` closes a validation gap where a non-PDF file could pass by
+    # spoofing only one of the two checks.
+    if content_type != "application/pdf" or not filename.endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are allowed")
 
     job_id = str(uuid.uuid4())
