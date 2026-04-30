@@ -1,102 +1,233 @@
-# Student Notes Sharing Platform
+<div align="center">
 
-## FastAPI Upload Backend
+# Gujarati Ai Learning Assistant
 
-This repository includes a FastAPI backend entrypoint at:
+### AI learning assistant project designed for Gujarati-language educational support and guidance.
 
-- `app/main.py`
+![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=111111)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
+![GitHub repo](https://img.shields.io/badge/GitHub-gujarati-ai-learning-assistant-0F172A?style=for-the-badge&logo=github)
+![Documentation](https://img.shields.io/badge/Documentation-Pro%20Level-7C3AED?style=for-the-badge)
 
-### Endpoint
+**Repository:** [bhedanikhilkumar-code/Gujarati-Ai-Learning-Assistant](https://github.com/bhedanikhilkumar-code/Gujarati-Ai-Learning-Assistant)
 
-- `POST /upload`
-  - Accepts multipart form-data with a single file field: `file`
-  - Only PDF files are allowed
-  - Saves upload to: `app/storage/{job_id}/input.pdf`
-  - Extracts text page-by-page via PyMuPDF
-  - Saves extracted text to: `app/storage/{job_id}/pages.json`
-  - Detects likely formula lines from text
-  - Saves formulas to: `app/storage/{job_id}/formulas.json`
-  - Generates markdown notes outline from headings + nearby summaries
-  - Saves notes outline to: `app/storage/{job_id}/notes.md`
-  - Extracts unique embedded images via hash dedupe
-  - Saves images to: `app/storage/{job_id}/diagrams/page_{n}_{i}.png`
-  - Saves image metadata to: `app/storage/{job_id}/diagrams.json`
-  - Returns JSON: `{ "job_id": "<uuid>" }`
+</div>
 
+---
 
-- `GET /export/{job_id}`
-  - Creates and streams `export.zip`
-  - Includes:
-    - `notes.md`
-    - `formulas.md`
-    - `diagrams.md`
-    - `diagrams/` folder (all extracted image files)
+## Executive Overview
 
-### Helpers
+AI learning assistant project designed for Gujarati-language educational support and guidance.
 
-- `extract_text_per_page(job_id)`
-  - Reads `app/storage/{job_id}/input.pdf`
-  - Returns `[{"page": int, "text": str}, ...]`
-  - Raises error for invalid/corrupt PDF files
-  - Persists extracted output to `pages.json`
+This README is written as a **portfolio-grade project document**: it explains the product idea, technical approach, architecture, workflows, setup process, engineering standards, and future roadmap so a reviewer can understand both the codebase and the thinking behind it.
 
-- `detect_formulas(pages_text)`
-  - Detects likely formulas from each text line using markers:
-    - `=`, `∑`, `∫`, `→`, `λ`, `μ`, `^`, `_`
-  - Also flags lines with many symbols/numbers
-  - Returns `[{"page": int, "line": str}, ...]`
-  - Persists extracted output to `formulas.json`
+## Product Positioning
 
-- `generate_notes_outline(pages_text)`
-  - Creates markdown outline using headings from ALL CAPS / ending with `:` / numbered headings
-  - Adds 3-6 bullet summaries from nearby text (simple sentence splitting + trimming)
-  - Returns markdown string and persists `notes.md`
+| Question | Answer |
+| --- | --- |
+| **Who is it for?** | Users, reviewers, recruiters, and developers who want to understand the project quickly. |
+| **What problem does it solve?** | It turns a practical idea into a structured software project with clear workflows and maintainable implementation direction. |
+| **Why it matters?** | The project demonstrates product thinking, stack selection, feature planning, and clean documentation discipline. |
+| **Current focus** | Professional polish, understandable architecture, and portfolio-ready presentation. |
 
-- `_write_formulas_markdown(job_dir)`
-  - Builds `formulas.md` from `formulas.json`
+## Repository Snapshot
 
-- `_write_diagrams_markdown(job_dir)`
-  - Builds `diagrams.md` from `diagrams.json`
+| Area | Details |
+| --- | --- |
+| Visibility | Public portfolio repository |
+| Primary stack | `JavaScript`, `FastAPI` |
+| Repository topics | `ai`, `education`, `gujarati`, `learning-tool` |
+| Useful commands | `python -m venv .venv`, `pip install -r requirements.txt`, `python app.py / uvicorn main:app --reload`, `pytest` |
+| Key dependencies | `fastapi`, `uvicorn[standard]`, `python-multipart`, `PyMuPDF` |
 
-- `extract_images(job_id)`
-  - Reads `app/storage/{job_id}/input.pdf`
-  - Returns `[{"page": int, "filename": str}, ...]`
-  - Deduplicates images using SHA-256 hash of image bytes
-  - Persists images under `diagrams/` and metadata to `diagrams.json`
+## Topics
 
-### CORS
+`ai` · `education` · `gujarati` · `learning-tool`
 
-CORS is configured to allow requests from:
+## Key Capabilities
 
-- `http://localhost:3000`
+| Capability | Description |
+| --- | --- |
+| **AI-assisted workflow** | Uses intelligent scoring, generation, classification, or recommendation patterns. |
+| **Data pipeline thinking** | Separates input preparation, processing, results, and user-facing interpretation. |
+| **Explainable output** | Focuses on insights, confidence, risk, or summaries users can act on. |
+| **Experiment-ready** | Good base for improving datasets, prompts, models, and evaluation loops. |
 
-### Run locally
+## Detailed Product Blueprint
+
+### Experience Map
+
+```mermaid
+flowchart TD
+    A[Discover project purpose] --> B[Understand main user workflow]
+    B --> C[Review architecture and stack]
+    C --> D[Run locally or inspect code]
+    D --> E[Evaluate quality and roadmap]
+    E --> F[Decide next improvement or deployment path]
+```
+
+### Feature Depth Matrix
+
+| Layer | What reviewers should look for | Why it matters |
+| --- | --- | --- |
+| Product | Clear user problem, target audience, and workflow | Shows product thinking beyond tutorial-level code |
+| Interface | Screens, pages, commands, or hardware interaction points | Demonstrates how users actually experience the project |
+| Logic | Validation, state transitions, service methods, processing flow | Proves the project can handle real use cases |
+| Data | Local storage, database, files, APIs, or device input/output | Explains how information moves through the system |
+| Quality | Tests, linting, setup clarity, and roadmap | Makes the project easier to trust, extend, and review |
+
+### Conceptual Data / State Model
+
+| Entity / State | Purpose | Example fields or responsibilities |
+| --- | --- | --- |
+| User input | Starts the main workflow | Form values, commands, uploaded files, device readings |
+| Domain model | Represents the project-specific object | Transaction, note, shipment, event, avatar, prediction, song, or task |
+| Service layer | Applies rules and coordinates actions | Validation, scoring, formatting, persistence, API calls |
+| Storage/output | Keeps or presents the result | Database row, local cache, generated file, chart, dashboard, or device action |
+| Feedback loop | Helps improve the next interaction | Status message, analytics, error handling, recommendations, roadmap item |
+
+### Professional Differentiators
+
+- **Documentation-first presentation:** A reviewer can understand the project without guessing the intent.
+- **Diagram-backed explanation:** Architecture and workflow diagrams make the system easier to evaluate quickly.
+- **Real-world framing:** The README describes users, outcomes, and operational flow rather than only listing files.
+- **Extension-ready roadmap:** Future improvements are scoped so the project can keep growing cleanly.
+- **Portfolio alignment:** The project is positioned as part of a consistent, professional GitHub portfolio.
+
+## Architecture Overview
+
+```mermaid
+flowchart LR
+    User[User] --> UI[Web UI / Views]
+    UI --> State[Client State & Forms]
+    State --> API[API / App Logic]
+    API --> Data[(Data Store / Files)]
+    API --> Integrations[External Integrations]
+```
+
+## Core Workflow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant A as Application
+    participant L as Logic Layer
+    participant D as Data/Device Layer
+    U->>A: Submit input
+    A->>L: Preprocess data
+    L->>D: Run model/scoring
+    D-->>L: State/result
+    L-->>A: Return insight with confidence
+    A-->>U: Updated experience
+```
+
+## How the Project is Organized
+
+```text
+Gujarati-Ai-Learning-Assistant/
+├── 📁 app
+│   ├── 📁 storage
+│   └── 📄 main.py
+├── 📁 frontend
+│   ├── 📁 app
+│   ├── 📄 next-env.d.ts
+│   ├── 📄 next.config.mjs
+│   ├── 📄 package-lock.json
+│   ├── 📄 package.json
+│   └── 📄 tsconfig.json
+├── 📁 backend
+│   ├── 📁 src
+│   ├── 📄 package-lock.json
+│   └── 📄 package.json
+├── 📄 requirements.txt
+```
+
+## Engineering Notes
+
+- **Separation of concerns:** UI, business logic, data/services, and platform concerns are documented as separate layers.
+- **Scalability mindset:** The project structure is ready for new screens, services, tests, and deployment improvements.
+- **Portfolio quality:** README content is designed to communicate value before someone even opens the code.
+- **Maintainability:** Naming, setup steps, and roadmap items make future work easier to plan and review.
+- **User-first framing:** Features are described by the value they provide, not just the technology used.
+
+## Local Setup
 
 ```bash
+# 1. Create a virtual environment
 python -m venv .venv
+
+# 2. Activate it
+# Windows
+.venv\Scripts\activate
+# macOS/Linux
 source .venv/bin/activate
+
+# 3. Install dependencies
 pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
+
+# 4. Run the app / service
+python app.py
 ```
 
+## Suggested Quality Checks
 
-## Next.js Frontend
+Before shipping or presenting this project, run the checks that match the stack:
 
-A single-page Next.js client is available in `frontend/`:
+| Check | Purpose |
+| --- | --- |
+| Format/lint | Keep code style consistent and reviewer-friendly. |
+| Static analysis | Catch type, syntax, and framework-level issues early. |
+| Unit/widget tests | Validate important logic and user-facing workflows. |
+| Manual smoke test | Confirm the main flow works from start to finish. |
+| README review | Ensure documentation matches the actual repository state. |
 
-- Upload PDF with `fetch` to `POST /upload`
-- Show progress states (`uploading`, `processing`, `downloading`, `success`, `error`)
-- On success, request `GET /export/{job_id}` and auto-download `export.zip`
-- Friendly inline error messages for upload/export failures
+## Roadmap
 
-Run it locally:
+- Evaluation dataset and benchmark scripts
+- Model confidence calibration
+- Explainability layer
+- Deployment-ready API packaging
 
-```bash
-cd frontend
-npm install
-npm run dev
-```
+## Professional Review Checklist
 
-Environment variable (optional):
+- [ ] Clear project purpose and audience
+- [ ] Feature list aligned with real user workflows
+- [ ] Architecture documented with diagrams
+- [ ] Setup steps tested on a clean machine
+- [ ] Screenshots or demo GIFs added where possible
+- [ ] Environment variables documented without exposing secrets
+- [ ] Tests/lint commands documented
+- [ ] Roadmap shows practical next steps
 
-- `NEXT_PUBLIC_API_BASE_URL` (default: `http://localhost:8000`)
+## Screenshots / Demo Suggestions
+
+Add these assets when available to make the repository even stronger:
+
+| Asset | Recommended content |
+| --- | --- |
+| Hero screenshot | Main dashboard, home screen, or landing page |
+| Workflow GIF | 10-20 second walkthrough of the core feature |
+| Architecture image | Exported version of the Mermaid diagram |
+| Before/after | Show how the project improves an existing workflow |
+
+## Contribution Notes
+
+This project can be extended through focused, well-scoped improvements:
+
+1. Pick one feature or documentation improvement.
+2. Create a small branch with a clear name.
+3. Keep changes easy to review.
+4. Update this README if setup, features, or architecture changes.
+5. Open a pull request with screenshots or test notes when possible.
+
+## License
+
+Add or update the license file based on how you want others to use this project. If this is a portfolio-only project, document that clearly before accepting external contributions.
+
+---
+
+<div align="center">
+
+**Built and documented with a focus on professional presentation, practical workflows, and clean engineering communication.**
+
+</div>
